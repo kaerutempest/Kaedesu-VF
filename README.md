@@ -1,20 +1,10 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Kdesu Anime Stream
 
-# Run and deploy your AI Studio app
+Sleek, super fast, and highly optimized anime streaming application designed to run buttery-smooth on all devices, including budget mobile devices ("HP Kentang").
 
-This contains everything you need to run your app locally.
+## Key Features
 
-View your app in AI Studio: https://ai.studio/apps/c104270c-9f07-4d88-824f-7f45a53a2de9
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- **Extreme Performance Optimizations**: Background gradients, blur filters, and costly backdrop-filters are dynamically disabled on mobile screens to maintain high frame rates.
+- **Troubleshoot-Ready Streaming**: Easy-to-use buttons to play video feeds in a new browser tab to bypass strict iframe isolation rules on certain browsers.
+- **No-Lag Animations**: Reduced animation queue delays for swift responsive interfaces.
+- **Bookmarks & History Tracking**: Effortlessly save your favorite shows and pick up right where you left off.
