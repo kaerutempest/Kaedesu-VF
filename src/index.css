@@ -97,12 +97,6 @@ body {
     background: rgba(8, 8, 10, 0.98) !important;
   }
 
-  /* Optimize layout passes on long rows */
-  #home-sliders-viewport > div {
-    content-visibility: auto;
-    contain-intrinsic-size: 250px;
-  }
-  
   /* Reduce transition durations to prevent laggy rendering animation queues */
   * {
     transition-duration: 150ms !important;
