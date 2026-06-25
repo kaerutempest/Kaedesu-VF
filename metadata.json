@@ -1,0 +1,6 @@
+{
+  "name": "KaeDesu - Anime Streaming",
+  "description": "The ultimate modern anime streaming application with sleek dark theme, responsive design, bookmark lists, watch history, and multiple embed players.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

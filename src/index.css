@@ -1,0 +1,166 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-brand: #ff3e3e;
+  --color-brand-glow: rgba(255, 62, 62, 0.4);
+}
+
+/* Base resets and scrollbars */
+html {
+  scroll-behavior: smooth;
+  background-color: #000;
+  color: #fff;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #000;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Hide scrollbars for sliders but keep scrollability */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom scrolling list shadows */
+.row-container-shadow {
+  position: relative;
+}
+.row-container-shadow::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 50px;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.95));
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Nebula Animated Background */
+.nebula-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  background: linear-gradient(125deg, #020000, #120101, #050110, #000);
+  background-size: 200% 200%;
+  animation: nebulaMove 35s ease-in-out infinite;
+  filter: blur(30px) brightness(0.65);
+  pointer-events: none;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+@keyframes nebulaMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* GPU Hardware Acceleration & Smooth scrolling for lists */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+}
+
+/* Optimizations for Budget Phones ("HP Kentang" / Mobile) */
+@media (max-width: 768px) {
+  /* Disable heavy continuous animated gradient and blur filters on mobile */
+  .nebula-bg {
+    animation: none !important;
+    filter: none !important;
+    background: radial-gradient(circle at top, #150202 0%, #000000 100%) !important;
+  }
+  
+  /* Disable costly backdrop filters that cause massive render lag on older mobile GPUs */
+  .glass-panel, 
+  .header-glass,
+  header,
+  #main-header {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(8, 8, 10, 0.98) !important;
+  }
+
+  /* Optimize layout passes on long rows */
+  #home-sliders-viewport > div {
+    content-visibility: auto;
+    contain-intrinsic-size: 250px;
+  }
+  
+  /* Reduce transition durations to prevent laggy rendering animation queues */
+  * {
+    transition-duration: 150ms !important;
+  }
+}
+
+/* Neon glow texts */
+.neon-glow {
+  color: var(--color-brand);
+  text-shadow: 0 0 15px rgba(255, 62, 62, 0.8), 0 0 30px rgba(255, 62, 62, 0.4);
+}
+
+/* Glow border animation for cards */
+.glow-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glow-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(255, 62, 62, 0.4);
+  box-shadow: 0 10px 25px -5px rgba(255, 62, 62, 0.15), 0 8px 10px -6px rgba(255, 62, 62, 0.1);
+}
+
+/* Loading Pulsing Glow Bar */
+.loading-pulse {
+  width: 60px;
+  height: 4px;
+  background: var(--color-brand);
+  border-radius: 10px;
+  margin: 0 auto;
+  animation: pulse-glow 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scaleX(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1.3);
+    box-shadow: 0 0 15px var(--color-brand);
+  }
+}
+
+/* Custom glassmorphism details */
+.glass-panel {
+  background: rgba(10, 10, 10, 0.75);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Header style with progressive blur */
+.header-glass {
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
