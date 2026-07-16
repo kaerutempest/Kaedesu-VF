@@ -22,9 +22,10 @@ interface VideoPlayerProps {
 }
 
 const SERVERS = [
-  { name: 'Server Vidsrc (Primary)', url: 'https://vidsrc.to/embed/anime' },
-  { name: 'Server Vidsrc.xyz (Backup)', url: 'https://vidsrc.xyz/embed/anime' },
-  { name: 'Server Vidsrc.me (Alternative)', url: 'https://vidsrc.me/embed/anime' },
+  { name: 'Server Vidsrc.to (Primary - Sub Indo)', url: 'https://vidsrc.to/embed/anime' },
+  { name: 'Server Vidsrc.cc (Backup - Multi Sub)', url: 'https://vidsrc.cc/v2/embed/anime' },
+  { name: 'Server Vidsrc.xyz (Alternative)', url: 'https://vidsrc.xyz/embed/anime' },
+  { name: 'Server Animesrc.xyz (Fast Stream)', url: 'https://animesrc.xyz/embed/anime' },
 ];
 
 export default function VideoPlayer({

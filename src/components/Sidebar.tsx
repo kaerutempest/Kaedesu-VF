@@ -251,7 +251,7 @@ export default function Sidebar({
             <div className="p-4 border-t border-white/5 bg-black/50 text-center">
               <p className="text-[11px] font-bold text-white/80">KaeDesu Studio Inc.</p>
               <p className="text-[9px] font-semibold text-brand tracking-widest uppercase mt-0.5">
-                Powered by KaeruShi & Jikan
+                Powered By KaeruShi
               </p>
             </div>
           </motion.div>

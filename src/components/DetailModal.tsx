@@ -46,16 +46,60 @@ export default function DetailModal({
     }
 
     const fetchDetail = async () => {
+      const cacheKey = `kaedesu_detail_cache_${animeId}`;
+      
+      // 1. Try loading from localStorage cache
+      try {
+        const stored = localStorage.getItem(cacheKey);
+        if (stored) {
+          const { data, timestamp } = JSON.parse(stored);
+          // Anime details are static, so 24-hour cache is perfectly safe and super fast
+          if (data && Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+            setAnime(data);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to parse detail cache for ' + animeId, err);
+      }
+
       setLoading(true);
       setError(false);
       try {
         const res = await fetch(`https://api.jikan.moe/v4/anime/${animeId}/full`);
         if (!res.ok) throw new Error('API Rate limit or Network Error');
         const { data } = await res.json();
+        
+        // Cache detail data
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({
+            data,
+            timestamp: Date.now()
+          }));
+        } catch (err) {
+          console.error('Failed to store detail cache:', err);
+        }
+
         setAnime(data);
       } catch (err) {
         console.error('Error fetching anime details:', err);
-        setError(true);
+        
+        // Fallback: Use expired cache if available
+        let fallbackData = null;
+        try {
+          const stored = localStorage.getItem(cacheKey);
+          if (stored) {
+            const { data } = JSON.parse(stored);
+            if (data) fallbackData = data;
+          }
+        } catch (_) {}
+
+        if (fallbackData) {
+          setAnime(fallbackData);
+        } else {
+          setError(true);
+        }
       } finally {
         setLoading(false);
       }

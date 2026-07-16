@@ -26,6 +26,7 @@ import {
   WatchHistoryItem, 
   StreamState 
 } from './types';
+import { BACKUP_DATA } from './data/backupData';
 
 // Hardcoded Categories matching Jikan API endpoints
 const CATEGORIES: Category[] = [
@@ -98,29 +99,93 @@ export default function App() {
 
   // ==================== API ROW LOADERS ====================
   const fetchRowData = useCallback(async (category: Category, force = false) => {
-    if (rowCache[category.id]?.list.length > 0 && !force) return;
+    // 1. Check in-memory state cache
+    if (rowCache[category.id]?.list && rowCache[category.id].list.length > 0 && !force) return;
 
+    const cacheKey = `kaedesu_row_cache_${category.id}`;
+
+    // 2. Try loading from localStorage cache (if not forcing refresh)
+    if (!force) {
+      try {
+        const stored = localStorage.getItem(cacheKey);
+        if (stored) {
+          const { list, timestamp } = JSON.parse(stored);
+          // If cache is under 2 hours old, use it immediately and skip the API fetch
+          if (list && list.length > 0 && Date.now() - timestamp < 2 * 60 * 60 * 1000) {
+            setRowCache((prev) => ({
+              ...prev,
+              [category.id]: { list, loading: false, error: false }
+            }));
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to parse localStorage cache for ' + category.id, err);
+      }
+    }
+
+    // Set state to loading
     setRowCache((prev) => ({
       ...prev,
       [category.id]: { list: prev[category.id]?.list || [], loading: true, error: false }
     }));
 
     try {
-      // Delay to avoid Jikan Rate Limits (Max 3 requests per second)
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      // Stagger request timing dynamically based on category order to prevent parallel rate limiting
+      const idx = CATEGORIES.findIndex((c) => c.id === category.id);
+      const delay = Math.max(100, idx * 350);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
       const res = await fetch(`https://api.jikan.moe/v4${category.query}${category.query.includes('?') ? '&' : '?'}limit=12&sfw=true`);
-      if (!res.ok) throw new Error('API Rate limit or network error');
-      const { data } = await res.json();
+      if (!res.ok) throw new Error(`API returned status ${res.status}`);
       
+      const { data } = await res.json();
+      if (!data || !Array.isArray(data)) throw new Error('Invalid data format received');
+
+      // Save successful result to localStorage
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          list: data,
+          timestamp: Date.now()
+        }));
+      } catch (err) {
+        console.error('Failed to store cache in localStorage:', err);
+      }
+
       setRowCache((prev) => ({
         ...prev,
-        [category.id]: { list: data || [], loading: false, error: false }
+        [category.id]: { list: data, loading: false, error: false }
       }));
     } catch (e) {
       console.error(`Failed to load category row ${category.name}:`, e);
+      
+      // Fallback 1: Try expired localStorage cache
+      let fallbackList: Anime[] = [];
+      try {
+        const stored = localStorage.getItem(cacheKey);
+        if (stored) {
+          const { list } = JSON.parse(stored);
+          if (list && list.length > 0) {
+            fallbackList = list;
+            console.log(`Fallback: Used expired cache for ${category.name}`);
+          }
+        }
+      } catch (_) {}
+
+      // Fallback 2: If no cache exists at all, use high-quality handpicked BACKUP_DATA
+      if (fallbackList.length === 0) {
+        fallbackList = BACKUP_DATA[category.id] || [];
+        console.log(`Fallback: Used hardcoded BACKUP_DATA for ${category.name}`);
+      }
+
       setRowCache((prev) => ({
         ...prev,
-        [category.id]: { list: [], loading: false, error: true }
+        [category.id]: { 
+          list: fallbackList, 
+          loading: false, 
+          // Only show error state if we have absolutely zero list items to show
+          error: fallbackList.length === 0 
+        }
       }));
     }
   }, [rowCache]);
@@ -619,10 +684,10 @@ export default function App() {
       {/* Global Bottom Navigation bar or footer */}
       <footer className="py-8 bg-black/40 border-t border-white/5 text-center px-4 mt-auto">
         <p className="text-xs font-bold text-white/50">
-          KaeDesu Anime Streaming Studio V2.0 — Copyright © 2026. All Rights Reserved.
+          Kaedesu Anime Streaming
         </p>
-        <p className="text-[10px] font-semibold text-white/30 max-w-md mx-auto mt-1 leading-relaxed">
-          KaeDesu adalah pemutar media berbasis Jikan API & embed vidsrc. Kami tidak menyimpan file video apa pun di server kami. Semua konten didapatkan dari penyedia streaming pihak ketiga secara gratis.
+        <p className="text-[10px] font-semibold text-white/30 mt-1">
+          Copyright © 2020 . All Rights Reserved
         </p>
       </footer>
     </div>
