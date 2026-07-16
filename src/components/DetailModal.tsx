@@ -48,7 +48,22 @@ export default function DetailModal({
     const fetchDetail = async () => {
       const cacheKey = `kaedesu_detail_cache_${animeId}`;
       
-      // 1. Try loading from localStorage cache
+      // 1. Try loading from sessionStorage first (for current tab session as requested)
+      try {
+        const sessionStored = sessionStorage.getItem(cacheKey);
+        if (sessionStored) {
+          const { data } = JSON.parse(sessionStored);
+          if (data) {
+            setAnime(data);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to parse sessionStorage detail cache for ' + animeId, err);
+      }
+
+      // 2. Try loading from localStorage cache
       try {
         const stored = localStorage.getItem(cacheKey);
         if (stored) {
@@ -71,12 +86,14 @@ export default function DetailModal({
         if (!res.ok) throw new Error('API Rate limit or Network Error');
         const { data } = await res.json();
         
-        // Cache detail data
+        // Cache detail data in both sessionStorage AND localStorage
         try {
-          localStorage.setItem(cacheKey, JSON.stringify({
+          const cacheObj = JSON.stringify({
             data,
             timestamp: Date.now()
-          }));
+          });
+          sessionStorage.setItem(cacheKey, cacheObj);
+          localStorage.setItem(cacheKey, cacheObj);
         } catch (err) {
           console.error('Failed to store detail cache:', err);
         }
@@ -85,15 +102,25 @@ export default function DetailModal({
       } catch (err) {
         console.error('Error fetching anime details:', err);
         
-        // Fallback: Use expired cache if available
+        // Fallback: Use sessionStorage or expired localStorage cache if available
         let fallbackData = null;
         try {
-          const stored = localStorage.getItem(cacheKey);
-          if (stored) {
-            const { data } = JSON.parse(stored);
+          const sessionStored = sessionStorage.getItem(cacheKey);
+          if (sessionStored) {
+            const { data } = JSON.parse(sessionStored);
             if (data) fallbackData = data;
           }
         } catch (_) {}
+
+        if (!fallbackData) {
+          try {
+            const stored = localStorage.getItem(cacheKey);
+            if (stored) {
+              const { data } = JSON.parse(stored);
+              if (data) fallbackData = data;
+            }
+          } catch (_) {}
+        }
 
         if (fallbackData) {
           setAnime(fallbackData);

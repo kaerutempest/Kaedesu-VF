@@ -104,13 +104,30 @@ export default function App() {
 
     const cacheKey = `kaedesu_row_cache_${category.id}`;
 
-    // 2. Try loading from localStorage cache (if not forcing refresh)
+    // 2. Try loading from sessionStorage first (for current session as requested), then localStorage
     if (!force) {
+      try {
+        const sessionStored = sessionStorage.getItem(cacheKey);
+        if (sessionStored) {
+          const { list, timestamp } = JSON.parse(sessionStored);
+          if (list && list.length > 0) {
+            setRowCache((prev) => ({
+              ...prev,
+              [category.id]: { list, loading: false, error: false }
+            }));
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to parse sessionStorage cache for ' + category.id, err);
+      }
+
+      // Fallback to localStorage
       try {
         const stored = localStorage.getItem(cacheKey);
         if (stored) {
           const { list, timestamp } = JSON.parse(stored);
-          // If cache is under 2 hours old, use it immediately and skip the API fetch
+          // If cache is under 2 hours old, use it immediately
           if (list && list.length > 0 && Date.now() - timestamp < 2 * 60 * 60 * 1000) {
             setRowCache((prev) => ({
               ...prev,
@@ -142,14 +159,16 @@ export default function App() {
       const { data } = await res.json();
       if (!data || !Array.isArray(data)) throw new Error('Invalid data format received');
 
-      // Save successful result to localStorage
+      // Save successful result to sessionStorage AND localStorage
       try {
-        localStorage.setItem(cacheKey, JSON.stringify({
+        const cacheObj = JSON.stringify({
           list: data,
           timestamp: Date.now()
-        }));
+        });
+        sessionStorage.setItem(cacheKey, cacheObj);
+        localStorage.setItem(cacheKey, cacheObj);
       } catch (err) {
-        console.error('Failed to store cache in localStorage:', err);
+        console.error('Failed to store cache in session/localStorage:', err);
       }
 
       setRowCache((prev) => ({
@@ -159,18 +178,31 @@ export default function App() {
     } catch (e) {
       console.error(`Failed to load category row ${category.name}:`, e);
       
-      // Fallback 1: Try expired localStorage cache
+      // Fallback 1: Try sessionStorage first, then expired localStorage cache
       let fallbackList: Anime[] = [];
       try {
-        const stored = localStorage.getItem(cacheKey);
-        if (stored) {
-          const { list } = JSON.parse(stored);
+        const sessionStored = sessionStorage.getItem(cacheKey);
+        if (sessionStored) {
+          const { list } = JSON.parse(sessionStored);
           if (list && list.length > 0) {
             fallbackList = list;
-            console.log(`Fallback: Used expired cache for ${category.name}`);
+            console.log(`Fallback: Used sessionStorage cache for ${category.name}`);
           }
         }
       } catch (_) {}
+
+      if (fallbackList.length === 0) {
+        try {
+          const stored = localStorage.getItem(cacheKey);
+          if (stored) {
+            const { list } = JSON.parse(stored);
+            if (list && list.length > 0) {
+              fallbackList = list;
+              console.log(`Fallback: Used expired localStorage cache for ${category.name}`);
+            }
+          }
+        } catch (_) {}
+      }
 
       // Fallback 2: If no cache exists at all, use high-quality handpicked BACKUP_DATA
       if (fallbackList.length === 0) {
