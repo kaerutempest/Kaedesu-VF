@@ -214,14 +214,14 @@ export default function DetailModal({
     <div
       id="detail-backdrop"
       onClick={handleBackdropClick}
-      className="fixed inset-0 bg-black/95 backdrop-blur-md z-45 overflow-y-auto no-scrollbar flex items-start justify-center p-0 md:p-6"
+      className="fixed inset-0 bg-black/95 z-45 overflow-y-auto no-scrollbar flex items-start justify-center p-0 md:p-6"
     >
       <div className="relative w-full max-w-4xl bg-[#08080a] border-0 md:border border-white/10 rounded-none md:rounded-3xl shadow-2xl overflow-hidden min-h-screen md:min-h-0 my-0 md:my-8">
         {/* Floating Close Button */}
         <button
           id="close-modal-btn"
           onClick={onClose}
-          className="fixed md:absolute top-5 right-5 w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:text-brand hover:border-brand/30 flex items-center justify-center transition-all z-50 hover:scale-110 active:scale-90 shadow-lg"
+          className="fixed md:absolute top-5 right-5 w-10 h-10 rounded-full bg-black/60 border border-white/10 text-white hover:text-brand hover:border-brand/30 flex items-center justify-center transition-all z-50 hover:scale-110 active:scale-90 shadow-lg"
           aria-label="Close"
         >
           <X size={20} />
