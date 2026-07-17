@@ -11,7 +11,9 @@ import {
   ChevronRight,
   Tv,
   Star,
-  Info
+  Info,
+  Settings,
+  Database
 } from 'lucide-react';
 import { Bookmark as BookmarkType, WatchHistoryItem, getProxiedImageUrl } from '../types';
 
@@ -27,6 +29,10 @@ interface SidebarProps {
   onNavigateUpdates: () => void;
   onNavigateHistory: () => void;
   onResumeEpisode: (malId: number, ep: number, title: string, totalEps: number) => void;
+  isOtakuMode: boolean;
+  onToggleOtakuMode: (enabled: boolean) => void;
+  otakuApiUrl: string;
+  onUpdateOtakuApiUrl: (url: string) => void;
 }
 
 export default function Sidebar({
@@ -41,6 +47,10 @@ export default function Sidebar({
   onNavigateUpdates,
   onNavigateHistory,
   onResumeEpisode,
+  isOtakuMode,
+  onToggleOtakuMode,
+  otakuApiUrl,
+  onUpdateOtakuApiUrl,
 }: SidebarProps) {
   return (
     <AnimatePresence>
@@ -256,6 +266,64 @@ export default function Sidebar({
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* API settings segment */}
+              <div id="sidebar-api-settings" className="flex flex-col gap-3 border-t border-white/5 pt-6">
+                <div className="flex items-center gap-2 text-xs font-extrabold tracking-wider text-white/40 uppercase px-1">
+                  <Settings size={12} className="text-brand animate-spin-slow" />
+                  <span>Integrator API Anime</span>
+                </div>
+
+                <div className="bg-white/2 border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
+                  <p className="text-[10px] text-white/50 leading-relaxed font-semibold">
+                    Atur sumber data anime Anda. Anda bisa menggunakan database global (MAL) atau server streaming lokal (Otakudesu).
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-xl border border-white/5">
+                    <button
+                      onClick={() => onToggleOtakuMode(false)}
+                      className={`py-2 text-[10px] font-black uppercase rounded-lg transition flex items-center justify-center gap-1.5 ${
+                        !isOtakuMode
+                          ? 'bg-brand text-white shadow-lg shadow-brand/10'
+                          : 'text-white/60 hover:text-white'
+                      }`}
+                    >
+                      <Database size={10} />
+                      <span>MAL Global</span>
+                    </button>
+                    <button
+                      onClick={() => onToggleOtakuMode(true)}
+                      className={`py-2 text-[10px] font-black uppercase rounded-lg transition flex items-center justify-center gap-1.5 ${
+                        isOtakuMode
+                          ? 'bg-brand text-white shadow-lg shadow-brand/10'
+                          : 'text-white/60 hover:text-white'
+                      }`}
+                    >
+                      <Tv size={10} />
+                      <span>Otakudesu</span>
+                    </button>
+                  </div>
+
+                  {isOtakuMode && (
+                    <div className="flex flex-col gap-2 mt-1">
+                      <label className="text-[9px] font-black uppercase text-white/40 tracking-wider">
+                        Otakudesu API URL (Juju-Otaku)
+                      </label>
+                      <input
+                        type="url"
+                        value={otakuApiUrl}
+                        onChange={(e) => onUpdateOtakuApiUrl(e.target.value)}
+                        placeholder="https://..."
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs font-medium text-white/90 focus:border-brand/50 outline-none transition"
+                      />
+                      <div className="flex items-center gap-1.5 text-[9px] font-semibold text-white/40 mt-1 bg-black/30 p-2.5 rounded-lg border border-white/5">
+                        <Info size={10} className="text-brand shrink-0" />
+                        <span>Masukkan endpoint base URL dari deployment <span className="text-brand font-bold">juju-otaku2.0</span> Anda.</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

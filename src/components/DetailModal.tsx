@@ -19,10 +19,13 @@ import { Anime, Bookmark as BookmarkType, WatchHistoryItem, getProxiedImageUrl }
 interface DetailModalProps {
   animeId: number | null;
   onClose: () => void;
-  onPlayEpisode: (malId: number, ep: number, title: string, totalEps: number) => void;
+  onPlayEpisode: (malId: number, ep: number, title: string, totalEps: number, otakuEpId?: string) => void;
   bookmarks: BookmarkType[];
   onToggleBookmark: (anime: Anime) => void;
   watchHistory: WatchHistoryItem[];
+  isOtakuMode: boolean;
+  otakuApiUrl: string;
+  otakuLookup: Record<number, string>;
 }
 
 export default function DetailModal({
@@ -32,6 +35,9 @@ export default function DetailModal({
   bookmarks,
   onToggleBookmark,
   watchHistory,
+  isOtakuMode,
+  otakuApiUrl,
+  otakuLookup,
 }: DetailModalProps) {
   const [anime, setAnime] = useState<Anime | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,6 +53,60 @@ export default function DetailModal({
 
     const fetchDetail = async () => {
       const cacheKey = `kaedesu_detail_cache_${animeId}`;
+      
+      if (isOtakuMode) {
+        setLoading(true);
+        setError(false);
+        try {
+          const slug = otakuLookup[animeId];
+          if (!slug) throw new Error('Otakudesu slug not found for ' + animeId);
+
+          const cleanBase = otakuApiUrl.replace(/\/$/, '');
+          // Try standard detail path, fallback to alternative path
+          let res = await fetch(`${cleanBase}/api/anime/${slug}`);
+          if (!res.ok) {
+            res = await fetch(`${cleanBase}/api/detail/${slug}`);
+          }
+          if (!res.ok) throw new Error(`API returned status ${res.status}`);
+          
+          const json = await res.json();
+          const detail = json.anime_detail || json.animeDetail || json.data || json;
+          if (!detail) throw new Error('No detail data found');
+
+          const mapped: any = {
+            mal_id: animeId,
+            url: '',
+            title: detail.title || 'Otakudesu Anime',
+            title_english: detail.title || '',
+            title_japanese: detail.japanese || detail.japanese_title || '',
+            type: detail.type || 'TV',
+            episodes: Array.isArray(detail.episode_list) ? detail.episode_list.length : 12,
+            status: detail.status || 'Ongoing',
+            airing: (detail.status || '').toLowerCase().includes('ong'),
+            score: parseFloat(detail.rating || detail.score) || 8.0,
+            synopsis: detail.synopsis || detail.sinopsis || 'Tidak ada sinopsis.',
+            genres: (detail.genres || detail.genre_list || []).map((g: any, i: number) => ({
+              mal_id: i,
+              name: typeof g === 'string' ? g : g.name || g.title || ''
+            })),
+            images: {
+              jpg: {
+                image_url: detail.thumb || detail.image || '',
+                large_image_url: detail.thumb || detail.image || ''
+              }
+            },
+            episode_list: detail.episode_list || detail.episodes || []
+          };
+
+          setAnime(mapped);
+        } catch (err) {
+          console.error('Failed to load Otakudesu details:', err);
+          setError(true);
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
       
       // 1. Try loading from sessionStorage first (for current tab session as requested)
       try {
@@ -292,7 +352,16 @@ export default function DetailModal({
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   id="play-first-episode-btn"
-                  onClick={() => onPlayEpisode(anime.mal_id, 1, anime.title, anime.episodes || 12)}
+                  onClick={() => {
+                    if (isOtakuMode && anime.episode_list && anime.episode_list.length > 0) {
+                      // Get oldest episode (typically last in Otakudesu's reverse list)
+                      const oldestEp = anime.episode_list[anime.episode_list.length - 1];
+                      const epId = oldestEp.id || oldestEp.endpoint || oldestEp.slug || oldestEp.url || '';
+                      onPlayEpisode(anime.mal_id, 1, anime.title, anime.episodes || 12, epId);
+                    } else {
+                      onPlayEpisode(anime.mal_id, 1, anime.title, anime.episodes || 12);
+                    }
+                  }}
                   className="flex-grow sm:flex-grow-0 flex items-center justify-center gap-2 px-8 py-3.5 bg-brand hover:bg-brand/90 text-white font-extrabold text-xs uppercase rounded-xl transition duration-300 shadow-lg shadow-brand/20 active:scale-95"
                 >
                   <Play size={14} className="fill-white" />
@@ -373,42 +442,89 @@ export default function DetailModal({
 
                 {/* Grid list of episode cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {[...Array(anime.episodes || 12)].map((_, idx) => {
-                    const epNum = idx + 1;
-                    const watched = getWatchedEpisode(epNum);
-                    return (
-                      <div
-                        key={epNum}
-                        id={`episode-card-${epNum}`}
-                        onClick={() =>
-                          onPlayEpisode(anime.mal_id, epNum, anime.title, anime.episodes || 12)
-                        }
-                        className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition duration-300 group ${
-                          watched
-                            ? 'bg-[#0f1118] border-brand/20 hover:border-brand/40 text-white/90'
-                            : 'bg-white/2 border-white/5 hover:border-brand/30 text-white/70'
-                        }`}
-                      >
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-xs font-bold group-hover:text-brand transition">
-                            Episode {epNum}
-                          </span>
-                          {watched && (
-                            <span className="text-[9px] font-bold text-brand uppercase tracking-wider">
-                              Sudah Ditonton
+                  {isOtakuMode && anime.episode_list && Array.isArray(anime.episode_list) ? (
+                    anime.episode_list.map((ep: any, idx: number) => {
+                      const epId = ep.id || ep.endpoint || ep.slug || ep.url || '';
+                      const epTitle = ep.title || `Episode ${anime.episode_list.length - idx}`;
+                      const match = epTitle.match(/Episode\s+(\d+)/i);
+                      const epNum = match ? parseInt(match[1]) : (anime.episode_list.length - idx);
+                      const watched = getWatchedEpisode(epNum);
+                      return (
+                        <div
+                          key={epId || idx}
+                          id={`episode-card-${epNum}`}
+                          onClick={() =>
+                            onPlayEpisode(anime.mal_id, epNum, anime.title, anime.episodes || 12, epId)
+                          }
+                          className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition duration-300 group ${
+                            watched
+                              ? 'bg-[#0f1118] border-brand/20 hover:border-brand/40 text-white/90'
+                              : 'bg-white/2 border-white/5 hover:border-brand/30 text-white/70'
+                          }`}
+                        >
+                          <div className="flex flex-col gap-0.5 min-w-0 pr-2">
+                            <span className="text-xs font-bold group-hover:text-brand transition truncate">
+                              {epTitle}
                             </span>
-                          )}
+                            {ep.uploaded_on && (
+                              <span className="text-[9px] font-medium text-white/40">
+                                {ep.uploaded_on}
+                              </span>
+                            )}
+                            {watched && (
+                              <span className="text-[9px] font-bold text-brand uppercase tracking-wider mt-0.5">
+                                Sudah Ditonton
+                              </span>
+                            )}
+                          </div>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center transition duration-300 shrink-0 ${
+                            watched
+                              ? 'bg-brand/10 text-brand group-hover:bg-brand group-hover:text-white'
+                              : 'bg-white/5 text-white/50 group-hover:bg-brand group-hover:text-white'
+                          }`}>
+                            <Play size={10} className="fill-current ml-0.5" />
+                          </div>
                         </div>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center transition duration-300 ${
-                          watched
-                            ? 'bg-brand/10 text-brand group-hover:bg-brand group-hover:text-white'
-                            : 'bg-white/5 text-white/50 group-hover:bg-brand group-hover:text-white'
-                        }`}>
-                          <Play size={10} className="fill-current ml-0.5" />
+                      );
+                    })
+                  ) : (
+                    [...Array(anime.episodes || 12)].map((_, idx) => {
+                      const epNum = idx + 1;
+                      const watched = getWatchedEpisode(epNum);
+                      return (
+                        <div
+                          key={epNum}
+                          id={`episode-card-${epNum}`}
+                          onClick={() =>
+                            onPlayEpisode(anime.mal_id, epNum, anime.title, anime.episodes || 12)
+                          }
+                          className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition duration-300 group ${
+                            watched
+                              ? 'bg-[#0f1118] border-brand/20 hover:border-brand/40 text-white/90'
+                              : 'bg-white/2 border-white/5 hover:border-brand/30 text-white/70'
+                          }`}
+                        >
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs font-bold group-hover:text-brand transition">
+                              Episode {epNum}
+                            </span>
+                            {watched && (
+                              <span className="text-[9px] font-bold text-brand uppercase tracking-wider">
+                                Sudah Ditonton
+                              </span>
+                            )}
+                          </div>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center transition duration-300 ${
+                            watched
+                              ? 'bg-brand/10 text-brand group-hover:bg-brand group-hover:text-white'
+                              : 'bg-white/5 text-white/50 group-hover:bg-brand group-hover:text-white'
+                          }`}>
+                            <Play size={10} className="fill-current ml-0.5" />
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>

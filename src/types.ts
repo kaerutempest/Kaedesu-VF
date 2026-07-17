@@ -45,6 +45,8 @@ export interface StreamState {
   totalEps: number;
   quality: string;
   server: string;
+  otakuEpId?: string;
+  isOtakuMode?: boolean;
 }
 
 export interface Bookmark {

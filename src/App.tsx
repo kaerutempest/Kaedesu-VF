@@ -81,6 +81,76 @@ export default function App() {
   const [bookmarks, setBookmarks] = useState<BookmarkType[]>([]);
   const [watchHistory, setWatchHistory] = useState<WatchHistoryItem[]>([]);
 
+  // Otakudesu Mode Integrator States
+  const [isOtakuMode, setIsOtakuMode] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('kaedesu_otaku_mode');
+      return stored === 'true';
+    } catch (_) {
+      return false;
+    }
+  });
+
+  const [otakuApiUrl, setOtakuApiUrl] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem('kaedesu_otaku_api_url');
+      return stored || 'https://otakudesu-unofficial-api.vercel.app';
+    } catch (_) {
+      return 'https://otakudesu-unofficial-api.vercel.app';
+    }
+  });
+
+  const [otakuLookup, setOtakuLookup] = useState<Record<number, string>>(() => {
+    try {
+      const stored = localStorage.getItem('kaedesu_otaku_lookup');
+      return stored ? JSON.parse(stored) : {};
+    } catch (_) {
+      return {};
+    }
+  });
+
+  const [activeOtakuEpisodes, setActiveOtakuEpisodes] = useState<any[]>([]);
+
+  // Stable string hash function to generate clean numeric ID for Otakudesu slug
+  const getNumericId = (slug: string): number => {
+    let hash = 0;
+    for (let i = 0; i < slug.length; i++) {
+      const char = slug.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash);
+  };
+
+  const mapOtakuToAnime = (item: any, slugField = 'id'): Anime => {
+    const slug = item[slugField] || item.slug || item.endpoint || '';
+    const numericId = getNumericId(slug);
+    
+    return {
+      mal_id: numericId,
+      url: '',
+      title: item.title || item.name || 'Anime Otaku',
+      title_english: item.title || '',
+      title_japanese: '',
+      synopsis: item.synopsis || 'Nonton streaming anime gratis subtitle Indonesia.',
+      images: {
+        jpg: {
+          image_url: item.thumb || item.image || item.img || '',
+          large_image_url: item.thumb || item.image || item.img || ''
+        }
+      },
+      genres: (item.genres || []).map((g: any, idx: number) => ({
+        mal_id: idx,
+        name: typeof g === 'string' ? g : g.name || ''
+      })),
+      score: parseFloat(item.rating || item.score) || 8.0,
+      episodes: parseInt(item.episodes || item.total_episode || '12') || 12,
+      status: item.status || 'Ongoing',
+      airing: true,
+      type: item.type || 'TV'
+    };
+  };
+
   // Infinite Scroll Trigger Ref
   const gridBottomObserverRef = useRef<HTMLDivElement>(null);
 
@@ -223,7 +293,6 @@ export default function App() {
         const stored = localStorage.getItem(cacheKey);
         if (stored) {
           const { list, timestamp } = JSON.parse(stored);
-          // If cache is under 2 hours old, use it immediately
           if (list && list.length > 0 && Date.now() - timestamp < 2 * 60 * 60 * 1000) {
             setRowCache((prev) => ({
               ...prev,
@@ -243,8 +312,73 @@ export default function App() {
       [category.id]: { list: prev[category.id]?.list || [], loading: true, error: false }
     }));
 
+    if (isOtakuMode) {
+      try {
+        const cleanBase = otakuApiUrl.replace(/\/$/, '');
+        let url = `${cleanBase}/api/search/${
+          category.id === 'catRomance' ? 'romance' : 
+          category.id === 'catAction' ? 'action' : 
+          category.id === 'catFantasy' ? 'fantasy' : 
+          category.id === 'catSchool' ? 'school' : 
+          category.id === 'catComedy' ? 'comedy' : 
+          category.id === 'catIsekai' ? 'isekai' : 
+          category.id === 'catHarem' ? 'harem' : 'naruto'
+        }`;
+        
+        if (category.id === 'catTrend') {
+          url = `${cleanBase}/api/ongoing`;
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Status ${response.status}`);
+        const resJson = await response.json();
+        const items = resJson.data || resJson.animeList || resJson.ongoing || resJson.search || resJson;
+        if (!Array.isArray(items)) throw new Error("Invalid Otakudesu response list");
+
+        const mappedList = items.map((item: any) => {
+          const slug = item.id || item.endpoint || item.slug || item.url || '';
+          const mappedItem = mapOtakuToAnime(item);
+          setOtakuLookup(prev => {
+            const next = { ...prev, [mappedItem.mal_id]: slug };
+            localStorage.setItem('kaedesu_otaku_lookup', JSON.stringify(next));
+            return next;
+          });
+          return mappedItem;
+        });
+
+        setRowCache((prev) => ({
+          ...prev,
+          [category.id]: { list: mappedList, loading: false, error: false }
+        }));
+        
+        try {
+          const cacheObj = JSON.stringify({
+            list: mappedList,
+            timestamp: Date.now()
+          });
+          sessionStorage.setItem(cacheKey, cacheObj);
+          localStorage.setItem(cacheKey, cacheObj);
+        } catch (_) {}
+      } catch (err) {
+        console.error(`Otakudesu fetch row error for ${category.name}:`, err);
+        let fallbackList: Anime[] = [];
+        try {
+          const stored = localStorage.getItem(cacheKey);
+          if (stored) {
+            const { list } = JSON.parse(stored);
+            if (list) fallbackList = list;
+          }
+        } catch (_) {}
+
+        setRowCache((prev) => ({
+          ...prev,
+          [category.id]: { list: fallbackList, loading: false, error: fallbackList.length === 0 }
+        }));
+      }
+      return;
+    }
+
     try {
-      // Stagger request timing dynamically based on category order to prevent parallel rate limiting
       const idx = CATEGORIES.findIndex((c) => c.id === category.id);
       const delay = Math.max(100, idx * 350);
       await new Promise((resolve) => setTimeout(resolve, delay));
@@ -255,7 +389,6 @@ export default function App() {
       const { data } = await res.json();
       if (!data || !Array.isArray(data)) throw new Error('Invalid data format received');
 
-      // Save successful result to sessionStorage AND localStorage
       try {
         const cacheObj = JSON.stringify({
           list: data,
@@ -274,7 +407,6 @@ export default function App() {
     } catch (e) {
       console.error(`Failed to load category row ${category.name}:`, e);
       
-      // Fallback 1: Try sessionStorage first, then expired localStorage cache
       let fallbackList: Anime[] = [];
       try {
         const sessionStored = sessionStorage.getItem(cacheKey);
@@ -300,7 +432,6 @@ export default function App() {
         } catch (_) {}
       }
 
-      // Fallback 2: If no cache exists at all, use high-quality handpicked BACKUP_DATA
       if (fallbackList.length === 0) {
         fallbackList = BACKUP_DATA[category.id] || [];
         console.log(`Fallback: Used hardcoded BACKUP_DATA for ${category.name}`);
@@ -311,24 +442,23 @@ export default function App() {
         [category.id]: { 
           list: fallbackList, 
           loading: false, 
-          // Only show error state if we have absolutely zero list items to show
           error: fallbackList.length === 0 
         }
       }));
     }
-  }, [rowCache]);
+  }, [rowCache, isOtakuMode, otakuApiUrl]);
 
-  // Initial load of first categories, with sequenced delay to safeguard MAL Jikan API
+  // Initial load & mode switcher reload
   useEffect(() => {
+    setRowCache({});
     const loadSequenced = async () => {
       for (const cat of CATEGORIES) {
         await fetchRowData(cat);
-        // Stagger load by 400ms to allow smooth parallel-like fetching without hitting 429
-        await new Promise((resolve) => setTimeout(resolve, 400));
+        await new Promise((resolve) => setTimeout(resolve, isOtakuMode ? 50 : 350));
       }
     };
     loadSequenced();
-  }, []);
+  }, [isOtakuMode]);
 
   // Listen to custom retry fetch events
   useEffect(() => {
@@ -387,6 +517,44 @@ export default function App() {
         }
       }
     } catch (_) {}
+
+    if (isOtakuMode) {
+      try {
+        const cleanBase = otakuApiUrl.replace(/\/$/, '');
+        const res = await fetch(`${cleanBase}/api/search/${encodeURIComponent(query)}`);
+        if (!res.ok) throw new Error(`Status ${res.status}`);
+        const json = await res.json();
+        const items = json.data || json.animeList || json.search || json;
+
+        if (!Array.isArray(items)) throw new Error('Search result is not an array');
+
+        const mappedList = items.map((item: any) => {
+          const slug = item.id || item.endpoint || item.slug || item.url || '';
+          const mappedItem = mapOtakuToAnime(item);
+          setOtakuLookup(prev => {
+            const next = { ...prev, [mappedItem.mal_id]: slug };
+            localStorage.setItem('kaedesu_otaku_lookup', JSON.stringify(next));
+            return next;
+          });
+          return mappedItem;
+        });
+
+        setSearchResults(mappedList);
+        setIsSearchLocal(false);
+
+        try {
+          const cacheStr = JSON.stringify(mappedList);
+          sessionStorage.setItem(cacheKey, cacheStr);
+          localStorage.setItem(cacheKey, cacheStr);
+        } catch (_) {}
+      } catch (err) {
+        console.error('Otakudesu search error:', err);
+        setSearchError(true);
+      } finally {
+        setSearchLoading(false);
+      }
+      return;
+    }
 
     try {
       const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=24&sfw=true`);
@@ -464,6 +632,74 @@ export default function App() {
     setCategoryLoading(true);
     setCategoryError(false);
 
+    if (isOtakuMode) {
+      try {
+        const cleanBase = otakuApiUrl.replace(/\/$/, '');
+        let url = '';
+        if (selectedCategory.id === 'catTrend') {
+          url = `${cleanBase}/api/ongoing/page/${categoryPage}`;
+        } else {
+          const queryTerm = selectedCategory.id === 'catRomance' ? 'romance' : selectedCategory.id === 'catAction' ? 'action' : selectedCategory.id === 'catFantasy' ? 'fantasy' : selectedCategory.id === 'catSchool' ? 'school' : selectedCategory.id === 'catComedy' ? 'comedy' : selectedCategory.id === 'catIsekai' ? 'isekai' : selectedCategory.id === 'catHarem' ? 'harem' : 'naruto';
+          url = `${cleanBase}/api/search/${queryTerm}`;
+        }
+
+        const res = await fetch(url);
+        if (!res.ok && selectedCategory.id === 'catTrend') {
+          url = `${cleanBase}/api/ongoing`;
+          const resRetry = await fetch(url);
+          if (!resRetry.ok) throw new Error('API Page Fetch Error');
+          const json = await resRetry.json();
+          const items = json.data || json.ongoing || json;
+          if (Array.isArray(items)) {
+            const mapped = items.map(item => mapOtakuToAnime(item));
+            setCategoryAnimeList(mapped);
+          }
+          setCategoryHasNext(false);
+          return;
+        }
+
+        if (!res.ok) throw new Error('API Page Fetch Error');
+        const json = await res.json();
+        const items = json.data || json.ongoing || json.search || json;
+
+        if (items && Array.isArray(items) && items.length > 0) {
+          const mapped = items.map((item: any) => {
+            const slug = item.id || item.endpoint || item.slug || item.url || '';
+            const mappedItem = mapOtakuToAnime(item);
+            setOtakuLookup(prev => {
+              const next = { ...prev, [mappedItem.mal_id]: slug };
+              localStorage.setItem('kaedesu_otaku_lookup', JSON.stringify(next));
+              return next;
+            });
+            return mappedItem;
+          });
+
+          setCategoryAnimeList((prev) => {
+            const existingIds = new Set(prev.map((a) => a.mal_id));
+            const uniques = mapped.filter((item) => !existingIds.has(item.mal_id));
+            return [...prev, ...uniques];
+          });
+
+          if (selectedCategory.id !== 'catTrend') {
+            setCategoryHasNext(false);
+          } else {
+            setCategoryPage((p) => p + 1);
+            if (categoryPage >= 5) {
+              setCategoryHasNext(false);
+            }
+          }
+        } else {
+          setCategoryHasNext(false);
+        }
+      } catch (err) {
+        console.error('Otakudesu load next page error:', err);
+        setCategoryError(true);
+      } finally {
+        setCategoryLoading(false);
+      }
+      return;
+    }
+
     try {
       const querySeparator = selectedCategory.query.includes('?') ? '&' : '?';
       const endpoint = `https://api.jikan.moe/v4${selectedCategory.query}${querySeparator}page=${categoryPage}&limit=24&sfw=true`;
@@ -490,7 +726,7 @@ export default function App() {
     } finally {
       setCategoryLoading(false);
     }
-  }, [selectedCategory, categoryLoading, categoryHasNext, categoryPage]);
+  }, [selectedCategory, categoryLoading, categoryHasNext, categoryPage, isOtakuMode, otakuApiUrl]);
 
   // Handle intersection observer for infinite scroll
   useEffect(() => {
@@ -630,25 +866,88 @@ export default function App() {
 
   // Resume stream directly
   const handleResumeEpisode = (malId: number, ep: number, title: string, totalEps: number) => {
-    setStreamState({
-      malId,
-      ep,
-      title,
-      totalEps,
-      quality: '720p',
-      server: 'Server Vidsrc'
-    });
+    if (isOtakuMode) {
+      try {
+        const cacheKey = `kaedesu_detail_cache_${malId}`;
+        const sessionStored = sessionStorage.getItem(cacheKey);
+        if (sessionStored) {
+          const { data } = JSON.parse(sessionStored);
+          if (data && Array.isArray(data.episode_list)) {
+            setActiveOtakuEpisodes(data.episode_list);
+          }
+        } else {
+          const slug = otakuLookup[malId];
+          if (slug) {
+            const cleanBase = otakuApiUrl.replace(/\/$/, '');
+            fetch(`${cleanBase}/api/anime/${slug}`)
+              .then(res => res.ok ? res.json() : fetch(`${cleanBase}/api/detail/${slug}`).then(r => r.json()))
+              .then(json => {
+                const detail = json.anime_detail || json.animeDetail || json.data || json;
+                if (detail && Array.isArray(detail.episode_list)) {
+                  setActiveOtakuEpisodes(detail.episode_list);
+                  const mapped = {
+                    mal_id: malId,
+                    url: '',
+                    title: detail.title || 'Otakudesu Anime',
+                    title_english: detail.title || '',
+                    title_japanese: detail.japanese || detail.japanese_title || '',
+                    type: detail.type || 'TV',
+                    episodes: detail.episode_list.length,
+                    status: detail.status || 'Ongoing',
+                    airing: (detail.status || '').toLowerCase().includes('ong'),
+                    score: parseFloat(detail.rating || detail.score) || 8.0,
+                    synopsis: detail.synopsis || detail.sinopsis || 'Tidak ada sinopsis.',
+                    genres: (detail.genres || detail.genre_list || []).map((g: any, i: number) => ({
+                      mal_id: i,
+                      name: typeof g === 'string' ? g : g.name || g.title || ''
+                    })),
+                    images: {
+                      jpg: {
+                        image_url: detail.thumb || detail.image || '',
+                        large_image_url: detail.thumb || detail.image || ''
+                      }
+                    },
+                    episode_list: detail.episode_list
+                  };
+                  sessionStorage.setItem(cacheKey, JSON.stringify({ data: mapped, timestamp: Date.now() }));
+                  localStorage.setItem(cacheKey, JSON.stringify({ data: mapped, timestamp: Date.now() }));
+                }
+              }).catch(err => console.error('Background fetch of resume detail failed:', err));
+          }
+        }
+      } catch (_) {}
+    }
+
+    let otakuEpId: string | undefined;
+    if (isOtakuMode) {
+      const slug = otakuLookup[malId];
+      if (slug) {
+        otakuEpId = `${slug}-episode-${ep}-sub-indo`;
+      }
+    }
+
+    handlePlayEpisode(malId, ep, title, totalEps, otakuEpId);
   };
 
   // Launch stream player from anywhere
-  const handlePlayEpisode = (malId: number, ep: number, title: string, totalEps: number) => {
+  const handlePlayEpisode = (malId: number, ep: number, title: string, totalEps: number, otakuEpId?: string) => {
+    let cleanOtakuEpId = otakuEpId;
+    if (isOtakuMode && !cleanOtakuEpId) {
+      const slug = otakuLookup[malId];
+      if (slug) {
+        cleanOtakuEpId = `${slug}-episode-${ep}-sub-indo`;
+      }
+    }
+
     setStreamState({
       malId,
       ep,
       title,
       totalEps,
       quality: '720p',
-      server: 'Server Vidsrc'
+      server: 'Server Vidsrc',
+      otakuEpId: cleanOtakuEpId,
+      isOtakuMode
     });
   };
 
@@ -722,6 +1021,16 @@ export default function App() {
         }}
         onNavigateHistory={() => setSidebarOpen(true)}
         onResumeEpisode={handleResumeEpisode}
+        isOtakuMode={isOtakuMode}
+        onToggleOtakuMode={(enabled) => {
+          setIsOtakuMode(enabled);
+          localStorage.setItem('kaedesu_otaku_mode', String(enabled));
+        }}
+        otakuApiUrl={otakuApiUrl}
+        onUpdateOtakuApiUrl={(url) => {
+          setOtakuApiUrl(url);
+          localStorage.setItem('kaedesu_otaku_api_url', url);
+        }}
       />
 
       {/* Main Container Stage */}
@@ -947,10 +1256,29 @@ export default function App() {
             setSelectedAnimeId(null);
           }
         }}
-        onPlayEpisode={handlePlayEpisode}
+        onPlayEpisode={(malId, ep, title, totalEps, otakuEpId) => {
+          if (isOtakuMode) {
+            try {
+              const cacheKey = `kaedesu_detail_cache_${malId}`;
+              const sessionStored = sessionStorage.getItem(cacheKey);
+              if (sessionStored) {
+                const { data } = JSON.parse(sessionStored);
+                if (data && Array.isArray(data.episode_list)) {
+                  setActiveOtakuEpisodes(data.episode_list);
+                }
+              }
+            } catch (err) {
+              console.error('Error loading episode list for player:', err);
+            }
+          }
+          handlePlayEpisode(malId, ep, title, totalEps, otakuEpId);
+        }}
         bookmarks={bookmarks}
         onToggleBookmark={(anime) => handleToggleBookmark(anime)}
         watchHistory={watchHistory}
+        isOtakuMode={isOtakuMode}
+        otakuApiUrl={otakuApiUrl}
+        otakuLookup={otakuLookup}
       />
 
       {streamState && (
@@ -965,6 +1293,9 @@ export default function App() {
           }}
           onPlayEpisode={handlePlayEpisode}
           onMarkWatched={handleMarkWatched}
+          isOtakuMode={isOtakuMode}
+          otakuApiUrl={otakuApiUrl}
+          otakuEpisodes={activeOtakuEpisodes}
         />
       )}
 
