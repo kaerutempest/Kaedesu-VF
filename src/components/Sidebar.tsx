@@ -13,7 +13,7 @@ import {
   Star,
   Info
 } from 'lucide-react';
-import { Bookmark as BookmarkType, WatchHistoryItem } from '../types';
+import { Bookmark as BookmarkType, WatchHistoryItem, getProxiedImageUrl } from '../types';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -156,9 +156,15 @@ export default function Sidebar({
                       >
                         <div className="w-10 h-14 rounded-lg overflow-hidden bg-white/5 shrink-0">
                           <img
-                            src={bookmark.image_url}
+                            src={getProxiedImageUrl(bookmark.image_url)}
                             alt={bookmark.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              if (target.src !== bookmark.image_url) {
+                                target.src = bookmark.image_url;
+                              }
+                            }}
                           />
                         </div>
                         <div className="flex-1 min-w-0 pr-6">
@@ -223,9 +229,15 @@ export default function Sidebar({
                       >
                         <div className="w-10 h-14 rounded-lg overflow-hidden bg-white/5 shrink-0 relative">
                           <img
-                            src={item.image_url}
+                            src={getProxiedImageUrl(item.image_url)}
                             alt={item.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              if (target.src !== item.image_url) {
+                                target.src = item.image_url;
+                              }
+                            }}
                           />
                           <div className="absolute bottom-0 inset-x-0 bg-brand text-[9px] font-extrabold text-white text-center py-0.5">
                             EP {item.ep}

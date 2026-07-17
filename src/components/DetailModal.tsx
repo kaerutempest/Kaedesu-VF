@@ -14,7 +14,7 @@ import {
   Sparkles,
   Info
 } from 'lucide-react';
-import { Anime, Bookmark as BookmarkType, WatchHistoryItem } from '../types';
+import { Anime, Bookmark as BookmarkType, WatchHistoryItem, getProxiedImageUrl } from '../types';
 
 interface DetailModalProps {
   animeId: number | null;
@@ -202,10 +202,16 @@ export default function DetailModal({
             {/* Banner Backdrop Frame */}
             <div className="relative h-[45vh] md:h-[400px] w-full overflow-hidden bg-neutral-950">
               <img
-                src={anime.images.jpg.large_image_url}
+                src={getProxiedImageUrl(anime.images.jpg.large_image_url || anime.images.jpg.image_url)}
                 alt={anime.title}
-                className="w-full h-full object-cover object-top filter blur-[2px] brightness-40 scale-105"
+                className="w-full h-full object-cover object-top filter blur-[2px] brightness-40 scale-102"
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (target.src !== anime.images.jpg.large_image_url) {
+                    target.src = anime.images.jpg.large_image_url;
+                  }
+                }}
               />
               {/* Bottom black visual mask */}
               <div className="absolute inset-0 bg-gradient-to-t from-[#08080a] via-black/50 to-transparent"></div>
@@ -215,10 +221,16 @@ export default function DetailModal({
                 {/* Visual Cover Poster */}
                 <div className="w-24 sm:w-32 md:w-40 aspect-[2/3] rounded-2xl overflow-hidden border border-white/10 shadow-2xl shrink-0 hidden sm:block">
                   <img
-                    src={anime.images.jpg.image_url}
+                    src={getProxiedImageUrl(anime.images.jpg.image_url)}
                     alt={anime.title}
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (target.src !== anime.images.jpg.image_url) {
+                        target.src = anime.images.jpg.image_url;
+                      }
+                    }}
                   />
                 </div>
 

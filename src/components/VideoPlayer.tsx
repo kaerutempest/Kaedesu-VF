@@ -100,7 +100,7 @@ export default function VideoPlayer({
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setCinemaMode(!cinemaMode)}
-            className={`hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold border transition ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold border transition ${
               cinemaMode
                 ? 'bg-brand/10 border-brand text-brand shadow-[0_0_10px_rgba(255,62,62,0.15)]'
                 : 'bg-white/5 border-white/10 text-white/70 hover:text-white'
@@ -109,16 +109,6 @@ export default function VideoPlayer({
             <Volume2 size={12} />
             <span>Mode Bioskop</span>
           </button>
-          
-          <a
-            href={streamUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-brand hover:bg-brand/90 text-white shadow-[0_0_15px_rgba(255,62,62,0.35)] transition transform hover:scale-[1.03] active:scale-95 shrink-0"
-          >
-            <ExternalLink size={12} />
-            <span>Buka di Tab Baru</span>
-          </a>
         </div>
       </header>
 
@@ -143,26 +133,19 @@ export default function VideoPlayer({
             />
           </div>
 
-          {/* CTA Tab Baru for Troubleshooting */}
-          <div className="mx-4 md:mx-0 bg-brand/10 border border-brand/30 p-4 rounded-xl flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="text-center md:text-left">
-              <h4 className="text-xs font-black uppercase text-brand tracking-wider flex items-center justify-center md:justify-start gap-1.5">
-                <Sparkles size={12} className="animate-pulse" />
-                Mengalami Layar Kosong / Lag / Bouncing?
+          {/* Tip Memutar Lancar (No "Tab Baru" mention) */}
+          <div className="mx-4 md:mx-0 bg-white/2 border border-white/5 p-4 rounded-xl flex items-center gap-3">
+            <div className="p-2 bg-brand/10 text-brand rounded-lg shrink-0">
+              <Sparkles size={14} className="animate-pulse" />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-extrabold uppercase text-white/95 tracking-wider">
+                Tips Menonton Lancar
               </h4>
-              <p className="text-[11px] text-white/70 mt-1 leading-relaxed">
-                Beberapa browser membatasi iframe streaming di dalam preview. Tekan tombol kanan untuk memutar langsung di tab browser baru yang lebih stabil, lancar, dan support mode Fullscreen.
+              <p className="text-[10px] text-white/50 mt-0.5 leading-relaxed">
+                Gunakan <span className="text-brand font-bold">Server Vidsrc.to (Sub Indo)</span> atau <span className="text-brand font-bold">Server Vidsrc.cc (Multi Sub)</span>. Jika server saat ini terasa lambat atau buffering, silakan ganti ke server cadangan pada panel di sebelah kanan.
               </p>
             </div>
-            <a
-              href={streamUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full md:w-auto shrink-0 flex items-center justify-center gap-2 px-5 py-2.5 bg-brand text-white text-xs font-black uppercase rounded-xl shadow-[0_0_15px_rgba(255,62,62,0.3)] hover:scale-[1.03] active:scale-95 transition"
-            >
-              <ExternalLink size={12} />
-              <span>Buka di Tab Baru ↗</span>
-            </a>
           </div>
 
           {/* Player controls toolbar info */}

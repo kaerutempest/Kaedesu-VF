@@ -63,3 +63,12 @@ export interface WatchHistoryItem {
   totalEps: number;
   watchedAt: number;
 }
+
+export function getProxiedImageUrl(url: string | undefined): string {
+  if (!url) return '';
+  if (url.includes('images.weserv.nl')) return url;
+  // Remove protocol to make it clean
+  const cleanUrl = url.replace(/^https?:\/\//i, '');
+  return `https://images.weserv.nl/?url=${encodeURIComponent(cleanUrl)}&w=300&output=jpg&q=80`;
+}
+

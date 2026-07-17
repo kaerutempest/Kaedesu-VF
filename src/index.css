@@ -68,12 +68,23 @@ body {
   100% { background-position: 0% 50%; }
 }
 
-/* Smooth scrolling for lists */
+/* Smooth scrolling for lists with 120fps GPU support */
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
+  will-change: scroll-position;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+}
+
+/* GPU hardware acceleration helper for elements that scale or translate */
+.gpu-accelerated {
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  perspective: 1000px;
 }
 
 /* Optimizations for Budget Phones ("HP Kentang" / Mobile) */

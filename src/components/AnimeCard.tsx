@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Star, Tv, Bookmark, BookmarkCheck } from 'lucide-react';
-import { Anime } from '../types';
+import { Anime, getProxiedImageUrl } from '../types';
 
 interface AnimeCardProps {
   anime: Anime;
@@ -17,6 +17,25 @@ export default function AnimeCard({
   onToggleBookmark,
 }: AnimeCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imgSrc, setImgSrc] = useState(() => getProxiedImageUrl(anime.images.jpg.image_url));
+
+  // Sync state if the anime image URL changes (e.g. when lists update or row changes)
+  useEffect(() => {
+    setImgSrc(getProxiedImageUrl(anime.images.jpg.image_url));
+    setImageLoaded(false);
+  }, [anime.images.jpg.image_url]);
+
+  const handleImageError = () => {
+    const rawUrl = anime.images.jpg.image_url;
+    if (imgSrc !== rawUrl) {
+      // Try raw URL
+      setImgSrc(rawUrl);
+    } else {
+      // Final fallback to clean placeholder
+      setImgSrc('https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&auto=format&fit=crop&q=60');
+    }
+    setImageLoaded(true); // Clear loader on error
+  };
 
   const scoreText = anime.score ? anime.score.toFixed(1) : 'N/A';
   const episodesText = anime.episodes ? `${anime.episodes} Ep` : 'Ongoing';
@@ -26,7 +45,7 @@ export default function AnimeCard({
     <div
       id={`anime-card-${anime.mal_id}`}
       onClick={onClick}
-      className="group relative flex flex-col cursor-pointer bg-white/2 hover:bg-white/5 border border-white/5 hover:border-brand/40 rounded-xl overflow-hidden transition-[transform,border-color,background-color] duration-300 transform-gpu hover:-translate-y-1.5 active:scale-95 shadow-md hover:shadow-lg hover:shadow-brand/5 select-none"
+      className="group gpu-accelerated relative flex flex-col cursor-pointer bg-white/2 hover:bg-white/5 border border-white/5 hover:border-brand/40 rounded-xl overflow-hidden transition-[transform,border-color,background-color] duration-300 transform-gpu hover:-translate-y-1.5 active:scale-95 shadow-md hover:shadow-lg hover:shadow-brand/5 select-none"
     >
       {/* Poster image container */}
       <div className="relative aspect-[2/3] w-full bg-neutral-900 overflow-hidden">
@@ -38,11 +57,12 @@ export default function AnimeCard({
         )}
         
         <img
-          src={anime.images.jpg.image_url}
+          src={imgSrc}
           alt={anime.title}
           loading="lazy"
           onLoad={() => setImageLoaded(true)}
-          className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${
+          onError={handleImageError}
+          className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-102 ${
             imageLoaded ? 'opacity-100' : 'opacity-0'
           }`}
           referrerPolicy="no-referrer"

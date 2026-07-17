@@ -40,6 +40,15 @@ const CATEGORIES: Category[] = [
   { name: 'Harem & Romance', id: 'catHarem', query: '/anime?genres=35', color: '#f43f5e' }
 ];
 
+interface HistoryState {
+  view: 'home' | 'category' | 'search';
+  categoryId: string | null;
+  searchQuery: string;
+  selectedAnimeId: number | null;
+  streamState: StreamState | null;
+  sidebarOpen: boolean;
+}
+
 export default function App() {
   // Navigation & UI States
   const [currentView, setCurrentView] = useState<'home' | 'category' | 'search'>('home');
@@ -74,6 +83,92 @@ export default function App() {
 
   // Infinite Scroll Trigger Ref
   const gridBottomObserverRef = useRef<HTMLDivElement>(null);
+
+  // ==================== BROWSER BACK BUTTON / GESTURAL NAVIGATION INTEGRATION ====================
+  const isPopStateRef = useRef(false);
+  const lastSyncedState = useRef<HistoryState | null>(null);
+
+  // Initialize/replace initial state on load
+  useEffect(() => {
+    const initialState: HistoryState = {
+      view: 'home',
+      categoryId: null,
+      searchQuery: '',
+      selectedAnimeId: null,
+      streamState: null,
+      sidebarOpen: false,
+    };
+    window.history.replaceState(initialState, '');
+    lastSyncedState.current = initialState;
+  }, []);
+
+  // Listen to popstate event (triggered by browser back/forward or phone gesture)
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      const state = event.state as HistoryState | null;
+      if (state) {
+        isPopStateRef.current = true;
+        setCurrentView(state.view);
+        setSelectedCategory(CATEGORIES.find((c) => c.id === state.categoryId) || null);
+        setSearchQuery(state.searchQuery || '');
+        setSelectedAnimeId(state.selectedAnimeId);
+        setStreamState(state.streamState);
+        setSidebarOpen(state.sidebarOpen);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Sync state changes with window.history
+  useEffect(() => {
+    const targetState: HistoryState = {
+      view: currentView,
+      categoryId: selectedCategory?.id || null,
+      searchQuery: searchQuery,
+      selectedAnimeId: selectedAnimeId,
+      streamState: streamState,
+      sidebarOpen: sidebarOpen,
+    };
+
+    if (isPopStateRef.current) {
+      isPopStateRef.current = false;
+      lastSyncedState.current = targetState;
+      return;
+    }
+
+    const isDifferent = !lastSyncedState.current ||
+      lastSyncedState.current.view !== targetState.view ||
+      lastSyncedState.current.categoryId !== targetState.categoryId ||
+      lastSyncedState.current.searchQuery !== targetState.searchQuery ||
+      lastSyncedState.current.selectedAnimeId !== targetState.selectedAnimeId ||
+      JSON.stringify(lastSyncedState.current.streamState) !== JSON.stringify(targetState.streamState) ||
+      lastSyncedState.current.sidebarOpen !== targetState.sidebarOpen;
+
+    if (isDifferent) {
+      const isForward =
+        (lastSyncedState.current && lastSyncedState.current.view === 'home' && targetState.view !== 'home') ||
+        (!lastSyncedState.current?.selectedAnimeId && targetState.selectedAnimeId) ||
+        (!lastSyncedState.current?.streamState && targetState.streamState) ||
+        (!lastSyncedState.current?.sidebarOpen && targetState.sidebarOpen) ||
+        (lastSyncedState.current && lastSyncedState.current.searchQuery !== targetState.searchQuery && targetState.searchQuery !== '');
+
+      if (isForward) {
+        window.history.pushState(targetState, '');
+      } else {
+        window.history.replaceState(targetState, '');
+      }
+      lastSyncedState.current = targetState;
+    }
+  }, [currentView, selectedCategory, searchQuery, selectedAnimeId, streamState, sidebarOpen]);
+
+  // Trigger search when returning back to search view with empty results
+  useEffect(() => {
+    if (currentView === 'search' && searchQuery && searchResults.length === 0 && !searchLoading && !searchError) {
+      handleSearch(searchQuery);
+    }
+  }, [currentView, searchQuery, searchResults.length, searchLoading, searchError]);
 
   // ==================== LOCAL PERSISTENCE ====================
   useEffect(() => {
@@ -565,30 +660,66 @@ export default function App() {
       {/* Primary Global Header */}
       <Header
         onSearch={handleSearch}
-        onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+        onToggleSidebar={() => {
+          if (sidebarOpen) {
+            if (window.history.state && (window.history.state as any).sidebarOpen) {
+              window.history.back();
+            } else {
+              setSidebarOpen(false);
+            }
+          } else {
+            setSidebarOpen(true);
+          }
+        }}
         isSidebarOpen={sidebarOpen}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onLogoClick={() => {
-          setCurrentView('home');
-          setSearchQuery('');
+          if (currentView !== 'home') {
+            if (window.history.state && (window.history.state as any).view !== 'home') {
+              window.history.back();
+            } else {
+              setCurrentView('home');
+              setSearchQuery('');
+            }
+          } else {
+            setSearchQuery('');
+          }
         }}
       />
 
       {/* Drawer Drawer Navigation Overlay */}
       <Sidebar
         isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
+        onClose={() => {
+          if (window.history.state && (window.history.state as any).sidebarOpen) {
+            window.history.back();
+          } else {
+            setSidebarOpen(false);
+          }
+        }}
         bookmarks={bookmarks}
         watchHistory={watchHistory}
         onSelectAnime={(id) => setSelectedAnimeId(id)}
         onClearHistory={handleClearHistory}
         onRemoveBookmark={handleRemoveBookmarkSidebar}
         onNavigateHome={() => {
+          if (window.history.state && (window.history.state as any).sidebarOpen) {
+            window.history.back();
+          } else {
+            setSidebarOpen(false);
+          }
           setCurrentView('home');
           setSearchQuery('');
         }}
-        onNavigateUpdates={() => handleOpenCategory(CATEGORIES[0])}
+        onNavigateUpdates={() => {
+          if (window.history.state && (window.history.state as any).sidebarOpen) {
+            window.history.back();
+          } else {
+            setSidebarOpen(false);
+          }
+          handleOpenCategory(CATEGORIES[0]);
+        }}
         onNavigateHistory={() => setSidebarOpen(true)}
         onResumeEpisode={handleResumeEpisode}
       />
@@ -603,8 +734,12 @@ export default function App() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => {
-                    setCurrentView('home');
-                    setSearchQuery('');
+                    if (window.history.state && (window.history.state as any).view !== 'home') {
+                      window.history.back();
+                    } else {
+                      setCurrentView('home');
+                      setSearchQuery('');
+                    }
                   }}
                   className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition border border-white/10 text-white"
                 >
@@ -680,7 +815,13 @@ export default function App() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setCurrentView('home')}
+                  onClick={() => {
+                    if (window.history.state && (window.history.state as any).view !== 'home') {
+                      window.history.back();
+                    } else {
+                      setCurrentView('home');
+                    }
+                  }}
                   className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition border border-white/10 text-white"
                 >
                   <ArrowLeft size={16} />
@@ -799,7 +940,13 @@ export default function App() {
       {/* ==================== FLOATING OVERLAYS: DETAIL & STREAM PLAYER ==================== */}
       <DetailModal
         animeId={selectedAnimeId}
-        onClose={() => setSelectedAnimeId(null)}
+        onClose={() => {
+          if (window.history.state && (window.history.state as any).selectedAnimeId !== null) {
+            window.history.back();
+          } else {
+            setSelectedAnimeId(null);
+          }
+        }}
         onPlayEpisode={handlePlayEpisode}
         bookmarks={bookmarks}
         onToggleBookmark={(anime) => handleToggleBookmark(anime)}
@@ -809,7 +956,13 @@ export default function App() {
       {streamState && (
         <VideoPlayer
           stream={streamState}
-          onBack={() => setStreamState(null)}
+          onBack={() => {
+            if (window.history.state && (window.history.state as any).streamState !== null) {
+              window.history.back();
+            } else {
+              setStreamState(null);
+            }
+          }}
           onPlayEpisode={handlePlayEpisode}
           onMarkWatched={handleMarkWatched}
         />
