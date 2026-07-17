@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, Search, X, Flame, Play, Clock, Sparkles } from 'lucide-react';
+import { Search, X, Flame, Play, Clock, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
   onSearch: (query: string) => void;
@@ -59,10 +59,26 @@ export default function Header({
           <button
             id="toggle-sidebar-btn"
             onClick={onToggleSidebar}
-            className="p-2 hover:bg-white/10 rounded-full transition text-white focus:outline-none focus:ring-2 focus:ring-brand"
+            className="relative w-10 h-10 hover:bg-white/10 active:bg-white/20 active:scale-90 rounded-full transition-all duration-300 text-white focus:outline-none focus:ring-2 focus:ring-brand flex items-center justify-center cursor-pointer select-none"
             aria-label="Toggle Sidebar"
           >
-            {isSidebarOpen ? <X size={22} /> : <Menu size={22} />}
+            <div className="relative w-5 h-3.5 flex flex-col justify-between items-center">
+              <span 
+                className={`w-5 h-[2px] bg-white rounded-full transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform ${
+                  isSidebarOpen ? 'rotate-45 translate-y-[6px]' : ''
+                }`} 
+              />
+              <span 
+                className={`w-5 h-[2px] bg-white rounded-full transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] transform ${
+                  isSidebarOpen ? 'opacity-0 scale-x-0' : 'opacity-100'
+                }`} 
+              />
+              <span 
+                className={`w-5 h-[2px] bg-white rounded-full transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform ${
+                  isSidebarOpen ? '-rotate-45 -translate-y-[6px]' : ''
+                }`} 
+              />
+            </div>
           </button>
           
           <div

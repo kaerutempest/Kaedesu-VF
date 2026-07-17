@@ -105,11 +105,17 @@ body {
     -webkit-backdrop-filter: none !important;
     background: rgba(8, 8, 10, 0.98) !important;
   }
+}
 
-  /* Reduce transition durations to prevent laggy rendering animation queues */
-  * {
-    transition-duration: 150ms !important;
-  }
+/* Snappy, elastic hover and click animations (hardware-accelerated, butter-smooth) */
+.click-feedback {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
+}
+.click-feedback:active {
+  transform: scale(0.92) translate3d(0, 0, 0) !important;
 }
 
 /* Neon glow texts */
