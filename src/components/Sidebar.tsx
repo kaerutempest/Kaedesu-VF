@@ -62,6 +62,7 @@ export default function Sidebar({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             onClick={onClose}
             className="fixed inset-0 bg-black/80 backdrop-blur-sm z-45"
           />
@@ -72,7 +73,7 @@ export default function Sidebar({
             initial={{ x: '-100%' }}
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            transition={{ type: 'tween', ease: 'easeOut', duration: 0.18 }}
             className="fixed top-0 bottom-0 left-0 w-80 max-w-[85vw] bg-[#070708] border-r border-white/10 z-50 flex flex-col shadow-2xl overflow-hidden"
           >
             {/* Header branding info */}
