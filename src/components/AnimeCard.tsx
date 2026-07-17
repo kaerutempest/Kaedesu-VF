@@ -26,7 +26,7 @@ export default function AnimeCard({
     <div
       id={`anime-card-${anime.mal_id}`}
       onClick={onClick}
-      className="group relative flex flex-col cursor-pointer bg-white/2 hover:bg-white/5 border border-white/5 hover:border-brand/40 rounded-xl overflow-hidden transition-all duration-300 transform hover:-translate-y-2.5 active:scale-95 shadow-md hover:shadow-lg hover:shadow-brand/5 select-none"
+      className="group relative flex flex-col cursor-pointer bg-white/2 hover:bg-white/5 border border-white/5 hover:border-brand/40 rounded-xl overflow-hidden transition-[transform,border-color,background-color] duration-300 transform-gpu hover:-translate-y-1.5 active:scale-95 shadow-md hover:shadow-lg hover:shadow-brand/5 select-none"
     >
       {/* Poster image container */}
       <div className="relative aspect-[2/3] w-full bg-neutral-900 overflow-hidden">

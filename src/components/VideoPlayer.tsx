@@ -138,7 +138,6 @@ export default function VideoPlayer({
               className="w-full h-full border-none"
               allowFullScreen
               referrerPolicy="no-referrer"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
               allow="autoplay; fullscreen"
               title={`${stream.title} - Episode ${stream.ep}`}
             />

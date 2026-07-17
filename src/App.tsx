@@ -63,6 +63,7 @@ export default function App() {
   const [searchResults, setSearchResults] = useState<Anime[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState(false);
+  const [isSearchLocal, setIsSearchLocal] = useState(false);
 
   // Home Screen rows state cache
   const [rowCache, setRowCache] = useState<Record<string, { list: Anime[]; loading: boolean; error: boolean }>>({});
@@ -248,22 +249,114 @@ export default function App() {
   const handleSearch = async (query: string) => {
     if (!query || query.trim().length <= 2) {
       setSearchResults([]);
+      setIsSearchLocal(false);
       setCurrentView('home');
       return;
     }
 
     setSearchLoading(true);
     setSearchError(false);
+    setIsSearchLocal(false);
     setCurrentView('search');
+
+    const cleanQuery = query.toLowerCase().trim();
+    const cacheKey = `kaedesu_search_cache_${cleanQuery}`;
+
+    // 1. Try sessionStorage cache first (very fast, 100% bypass of rate limits for repeated actions)
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && Array.isArray(parsed) && parsed.length > 0) {
+          setSearchResults(parsed);
+          setSearchLoading(false);
+          setSearchError(false);
+          setIsSearchLocal(false);
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // 2. Try localStorage cache as secondary
+    try {
+      const stored = localStorage.getItem(cacheKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && Array.isArray(parsed) && parsed.length > 0) {
+          setSearchResults(parsed);
+          setSearchLoading(false);
+          setSearchError(false);
+          setIsSearchLocal(false);
+          try { sessionStorage.setItem(cacheKey, JSON.stringify(parsed)); } catch (_) {}
+          return;
+        }
+      }
+    } catch (_) {}
 
     try {
       const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=24&sfw=true`);
-      if (!res.ok) throw new Error('Search failed');
+      if (!res.ok) throw new Error(`API returned status ${res.status}`);
+      
       const { data } = await res.json();
-      setSearchResults(data || []);
+      const results = data || [];
+      
+      setSearchResults(results);
+      setIsSearchLocal(false);
+
+      if (results.length > 0) {
+        try {
+          const cacheStr = JSON.stringify(results);
+          sessionStorage.setItem(cacheKey, cacheStr);
+          localStorage.setItem(cacheKey, cacheStr);
+        } catch (_) {}
+      }
     } catch (e) {
-      console.error('Anime Search Error:', e);
-      setSearchError(true);
+      console.warn('Anime Search Error, attempting fuzzy local search fallback:', e);
+      
+      // Smart fuzzy search local/backup fallback
+      const localCollection: Anime[] = [];
+      const seenIds = new Set<number>();
+
+      // Collect from row data currently loaded
+      (Object.values(rowCache) as Array<{ list: Anime[]; loading: boolean; error: boolean }>).forEach((row) => {
+        if (row && Array.isArray(row.list)) {
+          row.list.forEach((anime) => {
+            if (anime && anime.mal_id && !seenIds.has(anime.mal_id)) {
+              seenIds.add(anime.mal_id);
+              localCollection.push(anime);
+            }
+          });
+        }
+      });
+
+      // Collect from static backup data
+      Object.values(BACKUP_DATA).forEach((list) => {
+        if (Array.isArray(list)) {
+          list.forEach((anime) => {
+            if (anime && anime.mal_id && !seenIds.has(anime.mal_id)) {
+              seenIds.add(anime.mal_id);
+              localCollection.push(anime);
+            }
+          });
+        }
+      });
+
+      // Apply fuzzy filtering
+      const matched = localCollection.filter((anime) => {
+        const titleMatch = anime.title && anime.title.toLowerCase().includes(cleanQuery);
+        const titleJpMatch = anime.title_japanese && anime.title_japanese.toLowerCase().includes(cleanQuery);
+        const synopsisMatch = anime.synopsis && anime.synopsis.toLowerCase().includes(cleanQuery);
+        return titleMatch || titleJpMatch || synopsisMatch;
+      });
+
+      if (matched.length > 0) {
+        setSearchResults(matched);
+        setIsSearchLocal(true);
+        setSearchError(false);
+      } else {
+        setSearchError(true);
+        setIsSearchLocal(false);
+      }
     } finally {
       setSearchLoading(false);
     }
@@ -527,6 +620,15 @@ export default function App() {
                 </div>
               </div>
             </div>
+            
+            {isSearchLocal && (
+              <div className="mb-6 flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 px-4 py-3 rounded-2xl text-amber-400">
+                <Sparkles size={16} className="shrink-0 animate-pulse" />
+                <span className="text-[11px] md:text-xs font-bold leading-normal">
+                  Batasan frekuensi API terdeteksi. Menampilkan hasil pencarian cadangan dari database lokal Kaedesu.
+                </span>
+              </div>
+            )}
 
             {searchLoading ? (
               <div className="py-24 text-center">
