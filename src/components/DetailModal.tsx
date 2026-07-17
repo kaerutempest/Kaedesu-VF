@@ -142,8 +142,20 @@ export default function DetailModal({
       setLoading(true);
       setError(false);
       try {
-        const res = await fetch(`https://api.jikan.moe/v4/anime/${animeId}/full`);
-        if (!res.ok) throw new Error('API Rate limit or Network Error');
+        let res = null;
+        const retries = 3;
+        for (let i = 0; i < retries; i++) {
+          res = await fetch(`https://api.jikan.moe/v4/anime/${animeId}/full`);
+          if (res.status === 429) {
+            const waitTime = (i + 1) * 1500 + Math.random() * 500;
+            console.warn(`Jikan Detail API 429 Rate Limited. Retrying in ${waitTime}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, waitTime));
+            continue;
+          }
+          break;
+        }
+
+        if (!res || !res.ok) throw new Error(`API returned status ${res ? res.status : 'unknown'}`);
         const { data } = await res.json();
         
         // Cache detail data in both sessionStorage AND localStorage
@@ -268,8 +280,13 @@ export default function DetailModal({
                 referrerPolicy="no-referrer"
                 onError={(e) => {
                   const target = e.currentTarget;
-                  if (target.src !== anime.images.jpg.large_image_url) {
-                    target.src = anime.images.jpg.large_image_url;
+                  const rawUrl = anime.images.jpg.large_image_url || anime.images.jpg.image_url;
+                  if (target.src.includes('wsrv.nl') || target.src.includes('weserv.nl')) {
+                    target.src = `https://steemitimages.com/600x0/${rawUrl}`;
+                  } else if (target.src !== rawUrl) {
+                    target.src = rawUrl;
+                  } else {
+                    target.src = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=60';
                   }
                 }}
               />
@@ -287,8 +304,13 @@ export default function DetailModal({
                     referrerPolicy="no-referrer"
                     onError={(e) => {
                       const target = e.currentTarget;
-                      if (target.src !== anime.images.jpg.image_url) {
-                        target.src = anime.images.jpg.image_url;
+                      const rawUrl = anime.images.jpg.image_url;
+                      if (target.src.includes('wsrv.nl') || target.src.includes('weserv.nl')) {
+                        target.src = `https://steemitimages.com/300x0/${rawUrl}`;
+                      } else if (target.src !== rawUrl) {
+                        target.src = rawUrl;
+                      } else {
+                        target.src = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&auto=format&fit=crop&q=60';
                       }
                     }}
                   />

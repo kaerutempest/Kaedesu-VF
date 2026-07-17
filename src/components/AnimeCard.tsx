@@ -17,24 +17,34 @@ export default function AnimeCard({
   onToggleBookmark,
 }: AnimeCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [proxyLevel, setProxyLevel] = useState(0);
   const [imgSrc, setImgSrc] = useState(() => getProxiedImageUrl(anime.images.jpg.image_url));
 
   // Sync state if the anime image URL changes (e.g. when lists update or row changes)
   useEffect(() => {
     setImgSrc(getProxiedImageUrl(anime.images.jpg.image_url));
+    setProxyLevel(0);
     setImageLoaded(false);
   }, [anime.images.jpg.image_url]);
 
   const handleImageError = () => {
     const rawUrl = anime.images.jpg.image_url;
-    if (imgSrc !== rawUrl) {
-      // Try raw URL
+    const cleanUrl = rawUrl ? rawUrl.replace(/^https?:\/\//i, '') : '';
+
+    if (proxyLevel === 0) {
+      setImgSrc(`https://images.weserv.nl/?url=${encodeURIComponent(cleanUrl)}&w=300&output=jpg&q=80`);
+      setProxyLevel(1);
+    } else if (proxyLevel === 1) {
+      setImgSrc(`https://steemitimages.com/300x0/${rawUrl}`);
+      setProxyLevel(2);
+    } else if (proxyLevel === 2) {
       setImgSrc(rawUrl);
+      setProxyLevel(3);
     } else {
-      // Final fallback to clean placeholder
       setImgSrc('https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&auto=format&fit=crop&q=60');
+      setProxyLevel(4);
+      setImageLoaded(true);
     }
-    setImageLoaded(true); // Clear loader on error
   };
 
   const scoreText = anime.score ? anime.score.toFixed(1) : 'N/A';

@@ -383,8 +383,20 @@ export default function App() {
       const delay = Math.max(100, idx * 350);
       await new Promise((resolve) => setTimeout(resolve, delay));
 
-      const res = await fetch(`https://api.jikan.moe/v4${category.query}${category.query.includes('?') ? '&' : '?'}limit=12&sfw=true`);
-      if (!res.ok) throw new Error(`API returned status ${res.status}`);
+      let res = null;
+      const retries = 3;
+      for (let i = 0; i < retries; i++) {
+        res = await fetch(`https://api.jikan.moe/v4${category.query}${category.query.includes('?') ? '&' : '?'}limit=12&sfw=true`);
+        if (res.status === 429) {
+          const waitTime = (i + 1) * 2000 + Math.random() * 500;
+          console.warn(`Jikan API 429 Rate Limited on row ${category.name}. Retrying in ${waitTime}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+          continue;
+        }
+        break;
+      }
+
+      if (!res || !res.ok) throw new Error(`API returned status ${res ? res.status : 'unknown'}`);
       
       const { data } = await res.json();
       if (!data || !Array.isArray(data)) throw new Error('Invalid data format received');
@@ -557,8 +569,20 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=24&sfw=true`);
-      if (!res.ok) throw new Error(`API returned status ${res.status}`);
+      let res = null;
+      const retries = 3;
+      for (let i = 0; i < retries; i++) {
+        res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=24&sfw=true`);
+        if (res.status === 429) {
+          const waitTime = (i + 1) * 2000 + Math.random() * 500;
+          console.warn(`Jikan Search API 429 Rate Limited. Retrying in ${waitTime}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+          continue;
+        }
+        break;
+      }
+
+      if (!res || !res.ok) throw new Error(`API returned status ${res ? res.status : 'unknown'}`);
       
       const { data } = await res.json();
       const results = data || [];
@@ -704,8 +728,20 @@ export default function App() {
       const querySeparator = selectedCategory.query.includes('?') ? '&' : '?';
       const endpoint = `https://api.jikan.moe/v4${selectedCategory.query}${querySeparator}page=${categoryPage}&limit=24&sfw=true`;
       
-      const res = await fetch(endpoint);
-      if (!res.ok) throw new Error('API Page Fetch Error');
+      let res = null;
+      const retries = 3;
+      for (let i = 0; i < retries; i++) {
+        res = await fetch(endpoint);
+        if (res.status === 429) {
+          const waitTime = (i + 1) * 2000 + Math.random() * 500;
+          console.warn(`Jikan API 429 Rate Limited on category grid. Retrying in ${waitTime}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+          continue;
+        }
+        break;
+      }
+
+      if (!res || !res.ok) throw new Error(`API returned status ${res ? res.status : 'unknown'}`);
       const { data, pagination } = await res.json();
 
       if (data && data.length > 0) {
